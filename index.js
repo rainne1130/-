@@ -1,116 +1,167 @@
-import { Client, GatewayIntentBits, Events } from 'discord.js';
-
-console.log("TOKEN:", process.env.TOKEN);
+import {
+  Client,
+  GatewayIntentBits,
+  Events,
+  REST,
+  Routes,
+  SlashCommandBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
+} from 'discord.js';
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+  intents: [GatewayIntentBits.Guilds]
 });
 
 const balances = new Map();
 const logs = new Map();
 
-client.once(Events.ClientReady, () => {
+// 你的客服角色名稱
+const ADMIN_ROLE = "奈奈客服☃";
+
+// ======================
+// 註冊 Slash 指令
+// ======================
+const commands = [
+  new SlashCommandBuilder()
+    .setName('balance')
+    .setDescription('查詢餘額')
+    .addUserOption(option =>
+      option.setName('user')
+        .setDescription('查詢其他人（管理員限定）')
+    ),
+
+  new SlashCommandBuilder()
+    .setName('add')
+    .setDescription('加點數')
+    .addUserOption(o => o.setName('user').setRequired(true))
+    .addIntegerOption(o => o.setName('amount').setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName('charge')
+    .setDescription('扣點數')
+    .addUserOption(o => o.setName('user').setRequired(true))
+    .addIntegerOption(o => o.setName('amount').setRequired(true))
+];
+
+// ======================
+// 上線時註冊指令
+// ======================
+client.once(Events.ClientReady, async () => {
   console.log(`已上線：${client.user.tag}`);
+
+  const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+
+  await rest.put(
+    Routes.applicationCommands(client.user.id),
+    { body: commands }
+  );
+
+  console.log("Slash 指令已註冊");
 });
 
-client.on(Events.MessageCreate, async (message) => {
-  if (message.author.bot) return;
+// ======================
+// Slash 指令處理
+// ======================
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
 
-  const content = message.content.trim();
-  const userId = message.author.id;
+  const user = interaction.user;
+  const member = interaction.member;
 
-  if (!balances.has(userId)) balances.set(userId, 0);
+  const isAdmin = member.roles.cache.some(r => r.name === ADMIN_ROLE);
 
-  const targetUser = message.mentions.users.first();
-  const targetId = targetUser ? targetUser.id : userId;
+  const targetUser = interaction.options.getUser('user') || user;
+  const targetId = targetUser.id;
 
   if (!balances.has(targetId)) balances.set(targetId, 0);
 
-  const isAdmin = message.member?.roles.cache.some(r => r.name === "奈奈客服☃");
-
   // ======================
-  // 查餘額（重點修改）
+  // 查餘額
   // ======================
-  if (content.startsWith("!balance")) {
+  if (interaction.commandName === "balance") {
 
-    // ❗ 如果有標記別人，但不是管理員 → 擋
-    if (targetUser && !isAdmin) {
-      return message.reply("你只能查自己的餘額");
+    if (targetUser.id !== user.id && !isAdmin) {
+      return interaction.reply({
+        content: "你只能查自己的餘額",
+        ephemeral: true
+      });
     }
 
-    return message.reply(
-      `${targetUser && isAdmin ? targetUser.username : message.author.username} 的餘額：${balances.get(targetId)} 點數`
-    );
+    return interaction.reply({
+      content: `${targetUser.username} 的餘額：${balances.get(targetId)}`,
+      ephemeral: true
+    });
   }
 
   // ======================
-  // 管理員功能
+  // 加點數
   // ======================
-  if (content.startsWith("!add ")) {
-    if (!isAdmin) return message.reply("你不是管理員");
+  if (interaction.commandName === "add") {
+    if (!isAdmin) {
+      return interaction.reply({ content: "你不是客服", ephemeral: true });
+    }
 
-    if (!targetUser) return message.reply("請標記一個人");
-
-    const amount = parseInt(content.split(" ")[2]);
-    if (isNaN(amount)) return message.reply("金額錯誤");
+    const amount = interaction.options.getInteger('amount');
 
     balances.set(targetId, balances.get(targetId) + amount);
-    addLog(targetId, `+${amount}`);
 
-    return message.reply(`已幫 ${targetUser.username} 加 ${amount} 點數`);
-  }
-
-  if (content.startsWith("!charge ")) {
-    if (!isAdmin) return message.reply("你不是管理員");
-
-    if (!targetUser) return message.reply("請標記一個人");
-
-    const amount = parseInt(content.split(" ")[2]);
-    if (isNaN(amount)) return message.reply("金額錯誤");
-
-    let balance = balances.get(targetId);
-
-    if (balance < amount) {
-      return message.reply("餘額不足");
-    }
-
-    balances.set(targetId, balance - amount);
-    addLog(targetId, `-${amount}`);
-
-    return message.reply(
-      `已從 ${targetUser.username} 扣 ${amount} 點數，剩餘 ${balances.get(targetId)}`
-    );
+    return interaction.reply({
+      content: `已幫 ${targetUser.username} 加 ${amount}`,
+      ephemeral: true
+    });
   }
 
   // ======================
-  // 查紀錄（同樣限制）
+  // 扣點數 + 按鈕確認
   // ======================
-  if (content.startsWith("!log")) {
-
-    if (targetUser && !isAdmin) {
-      return message.reply("你只能查自己的紀錄");
+  if (interaction.commandName === "charge") {
+    if (!isAdmin) {
+      return interaction.reply({ content: "你不是客服", ephemeral: true });
     }
 
-    const userLogs = logs.get(targetId) || [];
+    const amount = interaction.options.getInteger('amount');
 
-    if (userLogs.length === 0) {
-      return message.reply("沒有紀錄");
-    }
-
-    return message.reply(
-      `${targetUser && isAdmin ? targetUser.username : message.author.username} 的紀錄：\n` +
-      userLogs.slice(-5).join("\n")
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`confirm_${targetId}_${amount}`)
+        .setLabel("確認扣款")
+        .setStyle(ButtonStyle.Danger)
     );
+
+    return interaction.reply({
+      content: `確認要扣 ${targetUser.username} ${amount} 點數？`,
+      components: [row],
+      ephemeral: true
+    });
   }
 });
 
-function addLog(userId, text) {
-  if (!logs.has(userId)) logs.set(userId, []);
-  logs.get(userId).push(`${new Date().toLocaleString()} ${text}`);
-}
+// ======================
+// 按鈕處理
+// ======================
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isButton()) return;
+
+  const [_, userId, amountStr] = interaction.customId.split("_");
+  const amount = parseInt(amountStr);
+
+  let balance = balances.get(userId) || 0;
+
+  if (balance < amount) {
+    return interaction.reply({
+      content: "餘額不足",
+      ephemeral: true
+    });
+  }
+
+  balances.set(userId, balance - amount);
+
+  return interaction.reply({
+    content: `扣款成功，剩餘 ${balances.get(userId)}`,
+    ephemeral: true
+  });
+});
 
 client.login(process.env.TOKEN);
