@@ -25,7 +25,7 @@ client.on(Events.MessageCreate, async (message) => {
   const userId = message.author.id;
 
   // 初始化自己
-  if (!balances.has(userId)) balances.set(userId, 100);
+  if (!balances.has(userId)) balances.set(userId, 0);
 
   // ======================
   // 抓目標（@某人）
@@ -33,7 +33,7 @@ client.on(Events.MessageCreate, async (message) => {
   const targetUser = message.mentions.users.first();
   const targetId = targetUser ? targetUser.id : userId;
 
-  if (!balances.has(targetId)) balances.set(targetId, 100);
+  if (!balances.has(targetId)) balances.set(targetId, 0);
 
   // ======================
   // 查餘額
