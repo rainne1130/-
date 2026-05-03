@@ -23,12 +23,12 @@ client.on(Events.MessageCreate, async (message) => {
   const content = message.content.trim();
   const userId = message.author.id;
 
-  if (!balances.has(userId)) balances.set(userId, 100);
+  if (!balances.has(userId)) balances.set(userId, 0);
 
   const targetUser = message.mentions.users.first();
   const targetId = targetUser ? targetUser.id : userId;
 
-  if (!balances.has(targetId)) balances.set(targetId, 100);
+  if (!balances.has(targetId)) balances.set(targetId, 0);
 
   const isAdmin = message.member?.roles.cache.some(r => r.name === "管理員");
 
