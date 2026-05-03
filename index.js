@@ -1,5 +1,7 @@
 import { Client, GatewayIntentBits, Events } from 'discord.js';
 
+console.log("TOKEN:", process.env.TOKEN);
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
