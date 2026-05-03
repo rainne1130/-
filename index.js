@@ -10,7 +10,6 @@ const client = new Client({
   ]
 });
 
-// 餘額 & 紀錄
 const balances = new Map();
 const logs = new Map();
 
@@ -24,33 +23,32 @@ client.on(Events.MessageCreate, async (message) => {
   const content = message.content.trim();
   const userId = message.author.id;
 
-  // 初始化自己
-  if (!balances.has(userId)) balances.set(userId, 0);
+  if (!balances.has(userId)) balances.set(userId, 100);
 
-  // ======================
-  // 抓目標（@某人）
-  // ======================
   const targetUser = message.mentions.users.first();
   const targetId = targetUser ? targetUser.id : userId;
 
-  if (!balances.has(targetId)) balances.set(targetId, 0);
+  if (!balances.has(targetId)) balances.set(targetId, 100);
+
+  const isAdmin = message.member?.roles.cache.some(r => r.name === "管理員");
 
   // ======================
-  // 查餘額
+  // 查餘額（重點修改）
   // ======================
   if (content.startsWith("!balance")) {
+
+    // ❗ 如果有標記別人，但不是管理員 → 擋
+    if (targetUser && !isAdmin) {
+      return message.reply("你只能查自己的餘額");
+    }
+
     return message.reply(
-      `${targetUser ? targetUser.username : message.author.username} 的餘額：${balances.get(targetId)} 點數`
+      `${targetUser && isAdmin ? targetUser.username : message.author.username} 的餘額：${balances.get(targetId)} 點數`
     );
   }
 
   // ======================
-  // 管理員判斷
-  // ======================
-  const isAdmin = message.member?.roles.cache.some(r => r.name === "管理員");
-
-  // ======================
-  // 加點數
+  // 管理員功能
   // ======================
   if (content.startsWith("!add ")) {
     if (!isAdmin) return message.reply("你不是管理員");
@@ -61,15 +59,11 @@ client.on(Events.MessageCreate, async (message) => {
     if (isNaN(amount)) return message.reply("金額錯誤");
 
     balances.set(targetId, balances.get(targetId) + amount);
-
     addLog(targetId, `+${amount}`);
 
     return message.reply(`已幫 ${targetUser.username} 加 ${amount} 點數`);
   }
 
-  // ======================
-  // 扣點數
-  // ======================
   if (content.startsWith("!charge ")) {
     if (!isAdmin) return message.reply("你不是管理員");
 
@@ -85,7 +79,6 @@ client.on(Events.MessageCreate, async (message) => {
     }
 
     balances.set(targetId, balance - amount);
-
     addLog(targetId, `-${amount}`);
 
     return message.reply(
@@ -94,9 +87,14 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   // ======================
-  // 查紀錄
+  // 查紀錄（同樣限制）
   // ======================
   if (content.startsWith("!log")) {
+
+    if (targetUser && !isAdmin) {
+      return message.reply("你只能查自己的紀錄");
+    }
+
     const userLogs = logs.get(targetId) || [];
 
     if (userLogs.length === 0) {
@@ -104,21 +102,15 @@ client.on(Events.MessageCreate, async (message) => {
     }
 
     return message.reply(
-      `${targetUser ? targetUser.username : message.author.username} 的紀錄：\n` +
+      `${targetUser && isAdmin ? targetUser.username : message.author.username} 的紀錄：\n` +
       userLogs.slice(-5).join("\n")
     );
   }
 });
 
-// ======================
-//  記錄系統
-// ======================
 function addLog(userId, text) {
   if (!logs.has(userId)) logs.set(userId, []);
-
-  logs.get(userId).push(
-    `${new Date().toLocaleString()} ${text}`
-  );
+  logs.get(userId).push(`${new Date().toLocaleString()} ${text}`);
 }
 
 client.login(process.env.TOKEN);
