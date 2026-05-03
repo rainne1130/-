@@ -110,6 +110,27 @@ async function updateBalance(userId, delta) {
     console.error(err);
   }
 }
+async function addTotal(userId, amount) {
+	
+  const totalRef = ref(db, `total/${userId}`);
+  try {
+    await runTransaction(totalRef, (current) => {
+      return (current || 0) + amount;
+    });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function getTotal(userId) {
+  try {
+    const snapshot = await get(ref(db, `total/${userId}`));
+    return snapshot.exists() ? snapshot.val() : 0;
+  } catch (err) {
+    console.error(err);
+    return 0;
+  }
+}
 
 client.on(Events.InteractionCreate, async (i) => {
   if (!i.isChatInputCommand()) return;
@@ -130,28 +151,39 @@ client.on(Events.InteractionCreate, async (i) => {
         ephemeral: true
       });
     }
-
+	
+	const total = await getTotal(target.id);
     return i.reply({
-      content: `${target.username} 的餘額為： ${balance} 元`,
+      content: `💰目前闆闆 ${target.username} 的餘額為： ${balance} 元\n總儲值金額為：${total} 元`,
       ephemeral: true
     });
   }
 
   // 儲值
   if (i.commandName === "add") {
+	  
+	if (!amount || amount <= 0) {
+	  return i.reply({ content: "金額錯誤", ephemeral: true });
+	}
+	  
     if (!isAdmin) {
       return i.reply({ content: "您不是客服，無法使用!", ephemeral: true });
     }
 
     await updateBalance(target.id, amount);
-
+	await addTotal(target.id, amount);
     return i.reply({
-      content: `已幫 ${target.username}闆闆儲值 ${amount} 元!`,
+      content: `💰已幫 ${target.username} 闆闆儲值 ${amount} 元!`,
     });
   }
 
   // 扣款
   if (i.commandName === "charge") {
+	  
+	if (!amount || amount <= 0) {
+	  return i.reply({ content: "金額錯誤", ephemeral: true });
+	}
+	  
     if (!isAdmin) {
       return i.reply({ content: "您不是客服，無法使用!", ephemeral: true });
     }
@@ -163,7 +195,7 @@ client.on(Events.InteractionCreate, async (i) => {
     await updateBalance(target.id, -amount);
 
     return i.reply({
-      content: `已幫闆闆 ${target.username} 扣款 ${amount} 元，剩餘金額: ${balance - amount} 元`,
+      content: `💸已幫闆闆 ${target.username} 扣款 ${amount} 元，剩餘金額: ${balance - amount} 元`,
     });
   }
 });
