@@ -10,7 +10,7 @@ const client = new Client({
   ]
 });
 
-// 假資料（之後會換資料庫）
+// 假資料（之後可換資料庫）
 const balances = new Map();
 
 client.once(Events.ClientReady, () => {
@@ -18,35 +18,55 @@ client.once(Events.ClientReady, () => {
 });
 
 client.on(Events.MessageCreate, async (message) => {
-    if (message.author.bot) return;
+  console.log("收到:", message.content);
 
-    const userId = message.author.id;
-    if (!balances.has(userId)) balances.set(userId, 100);
+  if (message.author.bot) return;
 
-    //  查餘額
-    if (message.content.trim() === "!balance") {
-        return message.reply(`目前餘額：${balances.get(userId)} 點數`);
+  // 初始化餘額
+  const userId = message.author.id;
+  if (!balances.has(userId)) balances.set(userId, 100);
+
+  const content = message.content.trim();
+
+  // ======================
+  // 查餘額
+  // ======================
+  if (content === "!balance") {
+    console.log("觸發 balance");
+
+    return message.reply(`目前餘額：${balances.get(userId)} 點數`);
+  }
+
+  // ======================
+  // 扣款（管理員）
+  // ======================
+  if (content.startsWith("!charge ")) {
+    console.log("👉 觸發 charge");
+
+    // 安全判斷（避免DM錯誤）
+    if (!message.member) return;
+
+    if (!message.member.roles.cache.some(r => r.name === "管理員")) {
+      return message.reply("你不是管理員！");
     }
 
-    //  扣款（管理員）
-    if (message.content.startsWith("!charge ")) {
-        if (!message.member.roles.cache.some(r => r.name === "管理員")) {
-            return message.reply("你不是管理員！");
-        }
+    const args = content.split(" ");
+    const price = parseInt(args[1]);
 
-        const price = parseInt(message.content.split(" ")[1]);
-        if (isNaN(price)) return message.reply("請輸入正確金額");
-
-        let balance = balances.get(userId);
-
-        if (balance < price) {
-            return message.reply("餘額不足！");
-        }
-
-        balances.set(userId, balance - price);
-
-        return message.reply(`已扣款 ${price} 點數，剩餘 ${balances.get(userId)}`);
+    if (isNaN(price)) {
+      return message.reply("請輸入正確金額，例如：!charge 50");
     }
+
+    let balance = balances.get(userId);
+
+    if (balance < price) {
+      return message.reply("餘額不足！");
+    }
+
+    balances.set(userId, balance - price);
+
+    return message.reply(`已扣款 ${price} 點數，剩餘 ${balances.get(userId)}`);
+  }
 });
 
 client.login(process.env.TOKEN);
