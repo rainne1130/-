@@ -24,7 +24,7 @@ client.on(Events.MessageCreate, async (message) => {
     if (!balances.has(userId)) balances.set(userId, 100);
 
     //  查餘額
-    if (message.content === "!balance") {
+    if (message.content.trim() === "!balance") {
         return message.reply(`目前餘額：${balances.get(userId)} 點數`);
     }
 
