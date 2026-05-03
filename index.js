@@ -18,36 +18,37 @@ client.once(Events.ClientReady, () => {
 });
 
 client.on(Events.MessageCreate, async (message) => {
-  if (message.author.bot) return;
+    if (message.author.bot) return;
 
-  // 只在 ticket 頻道運作
-  if (!message.channel.name.includes("ticket")) return;
+    if (!message.channel.name.includes("ticket")) return;
 
-  // 自動顯示餘額
-  const userId = message.author.id;
-  if (!balances.has(userId)) balances.set(userId, 100); // 預設100
+    const userId = message.author.id;
+    if (!balances.has(userId)) balances.set(userId, 100);
 
-  message.reply(`目前餘額：${balances.get(userId)} 點數`);
-
-  // 收費功能（管理員用）
-  if (message.content.startsWith("收費")) {
-    if (!message.member.roles.cache.some(r => r.name === "管理員")) {
-      return message.reply("你不是管理員");
+    //  查餘額
+    if (message.content === "!balance") {
+        return message.reply(`目前餘額：${balances.get(userId)} 點數`);
     }
 
-    const price = parseInt(message.content.split(" ")[1]);
-    if (isNaN(price)) return;
+    //  扣款（管理員）
+    if (message.content.startsWith("!charge ")) {
+        if (!message.member.roles.cache.some(r => r.name === "管理員")) {
+            return message.reply("你不是管理員！");
+        }
 
-    let balance = balances.get(userId) || 0;
+        const price = parseInt(message.content.split(" ")[1]);
+        if (isNaN(price)) return message.reply("請輸入正確金額");
 
-    if (balance < price) {
-      return message.reply("餘額不足");
+        let balance = balances.get(userId);
+
+        if (balance < price) {
+            return message.reply("餘額不足！");
+        }
+
+        balances.set(userId, balance - price);
+
+        return message.reply(`已扣款 ${price} 點數，剩餘 ${balances.get(userId)}`);
     }
-
-    balances.set(userId, balance - price);
-
-    message.reply(`已扣款 ${price} 點數，剩餘 ${balances.get(userId)}`);
-  }
 });
 
 client.login(process.env.TOKEN);
