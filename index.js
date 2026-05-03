@@ -10,63 +10,115 @@ const client = new Client({
   ]
 });
 
-// 假資料（之後可換資料庫）
+// 餘額 & 紀錄
 const balances = new Map();
+const logs = new Map();
 
 client.once(Events.ClientReady, () => {
   console.log(`已上線：${client.user.tag}`);
 });
 
 client.on(Events.MessageCreate, async (message) => {
-  console.log("收到:", message.content);
-
   if (message.author.bot) return;
 
-  // 初始化餘額
+  const content = message.content.trim();
   const userId = message.author.id;
+
+  // 初始化自己
   if (!balances.has(userId)) balances.set(userId, 100);
 
-  const content = message.content.trim();
+  // ======================
+  // 抓目標（@某人）
+  // ======================
+  const targetUser = message.mentions.users.first();
+  const targetId = targetUser ? targetUser.id : userId;
+
+  if (!balances.has(targetId)) balances.set(targetId, 100);
 
   // ======================
   // 查餘額
   // ======================
-  if (content === "!balance") {
-    console.log("觸發 balance");
-
-    return message.reply(`目前餘額：${balances.get(userId)} 點數`);
+  if (content.startsWith("!balance")) {
+    return message.reply(
+      `${targetUser ? targetUser.username : message.author.username} 的餘額：${balances.get(targetId)} 點數`
+    );
   }
 
   // ======================
-  // 扣款（管理員）
+  // 管理員判斷
+  // ======================
+  const isAdmin = message.member?.roles.cache.some(r => r.name === "管理員");
+
+  // ======================
+  // 加點數
+  // ======================
+  if (content.startsWith("!add ")) {
+    if (!isAdmin) return message.reply("你不是管理員");
+
+    if (!targetUser) return message.reply("請標記一個人");
+
+    const amount = parseInt(content.split(" ")[2]);
+    if (isNaN(amount)) return message.reply("金額錯誤");
+
+    balances.set(targetId, balances.get(targetId) + amount);
+
+    addLog(targetId, `+${amount}`);
+
+    return message.reply(`已幫 ${targetUser.username} 加 ${amount} 點數`);
+  }
+
+  // ======================
+  // 扣點數
   // ======================
   if (content.startsWith("!charge ")) {
-    console.log("👉 觸發 charge");
+    if (!isAdmin) return message.reply("你不是管理員");
 
-    // 安全判斷（避免DM錯誤）
-    if (!message.member) return;
+    if (!targetUser) return message.reply("請標記一個人");
 
-    if (!message.member.roles.cache.some(r => r.name === "管理員")) {
-      return message.reply("你不是管理員！");
+    const amount = parseInt(content.split(" ")[2]);
+    if (isNaN(amount)) return message.reply("金額錯誤");
+
+    let balance = balances.get(targetId);
+
+    if (balance < amount) {
+      return message.reply("餘額不足");
     }
 
-    const args = content.split(" ");
-    const price = parseInt(args[1]);
+    balances.set(targetId, balance - amount);
 
-    if (isNaN(price)) {
-      return message.reply("請輸入正確金額，例如：!charge 50");
+    addLog(targetId, `-${amount}`);
+
+    return message.reply(
+      `已從 ${targetUser.username} 扣 ${amount} 點數，剩餘 ${balances.get(targetId)}`
+    );
+  }
+
+  // ======================
+  // 查紀錄
+  // ======================
+  if (content.startsWith("!log")) {
+    const userLogs = logs.get(targetId) || [];
+
+    if (userLogs.length === 0) {
+      return message.reply("沒有紀錄");
     }
 
-    let balance = balances.get(userId);
-
-    if (balance < price) {
-      return message.reply("餘額不足！");
-    }
-
-    balances.set(userId, balance - price);
-
-    return message.reply(`已扣款 ${price} 點數，剩餘 ${balances.get(userId)}`);
+    return message.reply(
+      `${targetUser ? targetUser.username : message.author.username} 的紀錄：\n` +
+      userLogs.slice(-5).join("\n")
+    );
   }
 });
+
+// ======================
+//  記錄系統
+// ======================
+function addLog(userId, text) {
+  if (!logs.has(userId)) logs.set(userId, []);
+
+  logs.get(userId).push(
+    `${new Date().toLocaleString()} ${text}`
+  );
+}
 
 client.login(process.env.TOKEN);
