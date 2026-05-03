@@ -20,8 +20,6 @@ client.once(Events.ClientReady, () => {
 client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot) return;
 
-    if (!message.channel.name.includes("ticket")) return;
-
     const userId = message.author.id;
     if (!balances.has(userId)) balances.set(userId, 100);
 
