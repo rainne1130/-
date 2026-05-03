@@ -37,7 +37,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('add')
-    .setDescription('儲值')
+    .setDescription('儲值(客服限定)')
     .addUserOption(o =>
       o.setName('user')
         .setDescription('目標玩家')
@@ -51,7 +51,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('charge')
-    .setDescription('扣款')
+    .setDescription('扣款(客服限定)')
     .addUserOption(o =>
       o.setName('user')
         .setDescription('目標玩家')
@@ -126,13 +126,13 @@ client.on(Events.InteractionCreate, async (i) => {
 
     if (target.id !== i.user.id && !isAdmin) {
       return i.reply({
-        content: "你只能查自己的餘額",
+        content: "闆闆您好，您只能查自己的餘額!",
         ephemeral: true
       });
     }
 
     return i.reply({
-      content: `${target.username} 的餘額：${balance}`,
+      content: `${target.username} 的餘額為： ${balance} 元`,
       ephemeral: true
     });
   }
@@ -140,32 +140,30 @@ client.on(Events.InteractionCreate, async (i) => {
   // 儲值
   if (i.commandName === "add") {
     if (!isAdmin) {
-      return i.reply({ content: "你不是客服", ephemeral: true });
+      return i.reply({ content: "您不是客服，無法使用!", ephemeral: true });
     }
 
     await updateBalance(target.id, amount);
 
     return i.reply({
-      content: `已幫 ${target.username} 加 ${amount}`,
-      ephemeral: true
+      content: `已幫 ${target.username}闆闆儲值 ${amount} 元!`,
     });
   }
 
   // 扣款
   if (i.commandName === "charge") {
     if (!isAdmin) {
-      return i.reply({ content: "你不是客服", ephemeral: true });
+      return i.reply({ content: "您不是客服，無法使用!", ephemeral: true });
     }
 
     if (balance < amount) {
-      return i.reply({ content: "餘額不足", ephemeral: true });
+      return i.reply({ content: "目前餘額不足", ephemeral: true });
     }
 
     await updateBalance(target.id, -amount);
 
     return i.reply({
-      content: `已扣 ${amount}，剩 ${balance - amount}`,
-      ephemeral: true
+      content: `已幫闆闆 ${target.username} 扣款 ${amount} 元，剩餘金額: ${balance - amount} 元`,
     });
   }
 });
