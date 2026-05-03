@@ -30,7 +30,7 @@ client.on(Events.MessageCreate, async (message) => {
 
   if (!balances.has(targetId)) balances.set(targetId, 0);
 
-  const isAdmin = message.member?.roles.cache.some(r => r.name === "管理員");
+  const isAdmin = message.member?.roles.cache.some(r => r.name === "奈奈客服☃");
 
   // ======================
   // 查餘額（重點修改）
