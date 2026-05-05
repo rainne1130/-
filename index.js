@@ -28,7 +28,7 @@ const client = new Client({
 const commands = [
   new SlashCommandBuilder()
     .setName('balance')
-    .setDescription('查詢餘額')
+    .setDescription('我要查詢餘額')
     .addUserOption(option =>
       option.setName('user')
         .setDescription('查詢其他人（客服限定）')
@@ -154,7 +154,7 @@ client.on(Events.InteractionCreate, async (i) => {
 	
 	const total = await getTotal(target.id);
     return i.reply({
-      content: `💰目前闆闆 ${target.username} 的餘額為： ${balance} 元\n總儲值金額為：${total} 元`,
+      content: `💰目前闆闆資訊如下:\n ${target.username} \n總儲值金額為:\n${total} 元\n目前可使用餘額為:\n${balance} 元`,
       ephemeral: true
     });
   }
@@ -173,7 +173,7 @@ client.on(Events.InteractionCreate, async (i) => {
     await updateBalance(target.id, amount);
 	await addTotal(target.id, amount);
     return i.reply({
-      content: `💰已幫 ${target.username} 闆闆儲值 ${amount} 元!`,
+      content: `💰客服已幫 ${target.username} 闆闆儲值 ${amount} 元!`,
     });
   }
 
@@ -195,7 +195,7 @@ client.on(Events.InteractionCreate, async (i) => {
     await updateBalance(target.id, -amount);
 
     return i.reply({
-      content: `💸已幫闆闆 ${target.username} 扣款 ${amount} 元，剩餘金額: ${balance - amount} 元`,
+      content: `💸客服已幫闆闆 ${target.username} 扣款 ${amount} 元\n剩餘金額為:\n${balance - amount} 元!`,
     });
   }
 });
